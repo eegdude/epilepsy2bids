@@ -11,6 +11,7 @@ import pandas as pd
 import pyedflib
 import resampy
 
+import mne
 
 class FileFormat(str, enum.Enum):
     CSV = "csv"
@@ -136,7 +137,26 @@ class Eeg:
         self.montage = montage
         self._signalHeader = signalHeader
         self._fileHeader = fileHeader
-
+    
+    @classmethod
+    def loadBrainVision(self, eegFile: str):
+        eeg = mne.io.read_raw_brainvision(eegFile, preload=True)
+        eeg.rename_channels({"T7":"T3",
+                            "T8":"T4",
+                            "P7":"T5",
+                            "P8":"T6"}
+                           )
+        eeg = eeg.drop_channels([a for a in eeg.ch_names if a not in list(Eeg.ELECTRODES_10_20)])
+        signalHeader = Eeg.DEFAULT_SIGNAL_HEADER.copy()
+        signalHeader['sample_frequency'] = eeg.info['sfreq']
+        return self(
+            np.array(eeg._data),
+            eeg.ch_names,
+            eeg.info['sfreq'],
+            #self.montage,
+            signalHeader,
+            Eeg.DEFAULT_FILE_HEADER,
+        )
     @classmethod
     def loadEdf(
         cls,
